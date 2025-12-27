@@ -8,6 +8,13 @@ from pydantic import BaseModel
 from reachy_mini import ReachyMini, ReachyMiniApp
 from reachy_mini.utils import create_head_pose
 
+from reachy_mini_local_companion.llm.agent import LLMChatAgent
+from reachy_mini_local_companion.llm.models import (
+    ChatRequest,
+    ProfileCreate,
+    ProfileUpdate,
+)
+from reachy_mini_local_companion.llm.profiles import ProfileStore
 from reachy_mini_local_companion.stt.manager import (
     STTConfig,
     STTEngineType,
@@ -61,6 +68,10 @@ class ReachyMiniLocalCompanion(ReachyMiniApp):
             logger.info(f"Transcription: {event.text}")
 
         stt_manager.add_listener(on_transcription)
+
+        # Initialize LLM Chat Agent
+        profile_store = ProfileStore()
+        chat_agent = LLMChatAgent(profile_store)
 
         # === Pydantic Models for API ===
         class AntennaState(BaseModel):
@@ -163,6 +174,83 @@ class ReachyMiniLocalCompanion(ReachyMiniApp):
             nonlocal last_transcripts
             last_transcripts = []
             return {"status": "cleared"}
+
+        # === LLM Chat Endpoints ===
+        @self.settings_app.get("/profiles")
+        def list_profiles() -> list[dict[str, Any]]:
+            """List all available profiles."""
+            profiles = profile_store.list_all()
+            return [p.model_dump(mode="json") for p in profiles]
+
+        @self.settings_app.post("/profiles")
+        def create_profile(data: ProfileCreate) -> dict[str, Any]:
+            """Create a new profile."""
+            profile = profile_store.create(data)
+            return profile.model_dump(mode="json")
+
+        @self.settings_app.get("/profiles/{profile_id}")
+        def get_profile(profile_id: str) -> dict[str, Any]:
+            """Get a profile by ID."""
+            profile = profile_store.get(profile_id)
+            if profile is None:
+                return {"error": "Profile not found"}
+            return profile.model_dump(mode="json")
+
+        @self.settings_app.put("/profiles/{profile_id}")
+        def update_profile(profile_id: str, data: ProfileUpdate) -> dict[str, Any]:
+            """Update a profile."""
+            profile = profile_store.update(profile_id, data)
+            if profile is None:
+                return {"error": "Profile not found"}
+            return profile.model_dump(mode="json")
+
+        @self.settings_app.delete("/profiles/{profile_id}")
+        def delete_profile(profile_id: str) -> dict[str, Any]:
+            """Delete a profile."""
+            success = profile_store.delete(profile_id)
+            if not success:
+                return {"error": "Cannot delete profile (not found or last profile)"}
+            return {"status": "deleted"}
+
+        @self.settings_app.post("/chat")
+        def send_chat_message(request: ChatRequest) -> dict[str, Any]:
+            """Send a message to the LLM and get a response."""
+            try:
+                response = chat_agent.chat_sync(request)
+                return {
+                    "message": response.message,
+                    "profile_id": response.profile_id,
+                    "profile_name": response.profile_name,
+                }
+            except Exception as e:
+                logger.error(f"Chat error: {e}")
+                return {"error": str(e)}
+
+        @self.settings_app.delete("/chat/history")
+        def clear_chat_history() -> dict[str, str]:
+            """Clear the conversation history."""
+            chat_agent.clear_history()
+            return {"status": "cleared"}
+
+        @self.settings_app.get("/chat/history")
+        def get_chat_history() -> list[dict[str, Any]]:
+            """Get the conversation history."""
+            messages = chat_agent.get_history()
+            return [m.model_dump(mode="json") for m in messages]
+
+        @self.settings_app.get("/chat/status")
+        def get_chat_status() -> dict[str, Any]:
+            """Get LLM provider status."""
+            status = chat_agent.get_status()
+            current_profile = chat_agent.get_current_profile()
+            return {
+                "connected": status.connected,
+                "provider": status.provider,
+                "model": status.model,
+                "error": status.error,
+                "current_profile_id": current_profile.id if current_profile else None,
+                "current_profile_name": current_profile.name if current_profile else None,
+            }
 
         # === Main control loop ===
         while not stop_event.is_set():

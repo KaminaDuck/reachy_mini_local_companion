@@ -263,3 +263,76 @@ export LLM_MODEL=meta-llama/Meta-Llama-3.1-8B-Instruct
 export LLM_BASE_URL=http://localhost:8000/v1
 export LLM_API_KEY=not-needed
 ```
+
+---
+
+## Implementation Resolution
+
+**Implemented on:** 2025-12-26
+
+### Summary
+
+Successfully implemented the LLM chat feature with custom profiles using Pydantic AI. The implementation follows the spec closely with all core functionality delivered.
+
+### Changes from Original Plan
+
+1. **Synchronous Chat**: Used `chat_sync()` for synchronous execution in the FastAPI endpoint context rather than async, as the main app loop runs synchronously. Async `chat()` method is also available for future use.
+
+2. **Profile Storage Location**: Profiles are stored in `~/.cache/reachy_mini/profiles.json` rather than within the package directory, following XDG conventions and avoiding package mutation.
+
+3. **Unit Tests**: Deferred to a follow-up task. The module structure supports testing but actual test files were not created in this implementation.
+
+4. **WebSocket Streaming**: Deferred to a future enhancement. The current implementation uses synchronous request/response which works well for the use case.
+
+### Files Created (554 lines)
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `llm/__init__.py` | 27 | Module exports |
+| `llm/models.py` | 91 | Pydantic models for chat and profiles |
+| `llm/profiles.py` | 161 | Profile CRUD and persistence |
+| `llm/agent.py` | 275 | Pydantic AI agent with multi-turn support |
+
+### Files Modified (928 lines added)
+
+| File | Changes |
+|------|---------|
+| `pyproject.toml` | +1 dependency (pydantic-ai-slim[openai]) |
+| `main.py` | +88 lines - LLM initialization and 9 new endpoints |
+| `static/index.html` | +62 lines - Chat UI section and profile modal |
+| `static/main.js` | +347 lines - Chat and profile management logic |
+| `static/style.css` | +430 lines - Chat panel and modal styling |
+
+### API Endpoints Added
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/profiles` | GET | List all profiles |
+| `/profiles` | POST | Create new profile |
+| `/profiles/{id}` | GET | Get profile by ID |
+| `/profiles/{id}` | PUT | Update profile |
+| `/profiles/{id}` | DELETE | Delete profile |
+| `/chat` | POST | Send message and get response |
+| `/chat/history` | GET | Get conversation history |
+| `/chat/history` | DELETE | Clear conversation history |
+| `/chat/status` | GET | Get LLM provider status |
+
+### Default Profiles
+
+Three default profiles are created on first run:
+1. **Friendly Robot** - Warm, encouraging personality
+2. **Curious Explorer** - Inquisitive, asks follow-up questions
+3. **Helpful Assistant** - Professional, task-focused
+
+### Validation Results
+
+- Python syntax checks: All passed
+- Ruff linting: All checks passed
+- Mypy type checking: Success, no issues found
+
+### Outstanding Items
+
+- [ ] Create unit tests for LLM module
+- [ ] Add WebSocket streaming for real-time responses
+- [ ] Test with actual Ollama/OpenAI providers
+- [ ] Test on actual Reachy Mini hardware

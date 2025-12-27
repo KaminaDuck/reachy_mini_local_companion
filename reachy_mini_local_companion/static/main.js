@@ -264,3 +264,350 @@ fetchSTTStatus().then((status) => {
         startPolling();
     }
 });
+
+// === LLM Chat Controls ===
+let profiles = [];
+let currentProfileId = null;
+let chatMessages = [];
+let isSending = false;
+
+async function loadProfiles() {
+    try {
+        const resp = await fetch("/profiles");
+        profiles = await resp.json();
+        populateProfileSelect();
+        return profiles;
+    } catch (e) {
+        console.error("Error loading profiles:", e);
+        return [];
+    }
+}
+
+function populateProfileSelect() {
+    const select = document.getElementById("profile-select");
+    select.innerHTML = profiles
+        .map(
+            (p) =>
+                `<option value="${p.id}" ${p.id === currentProfileId ? "selected" : ""}>${p.name}</option>`
+        )
+        .join("");
+
+    // Set initial profile if not set
+    if (!currentProfileId && profiles.length > 0) {
+        currentProfileId = profiles[0].id;
+    }
+}
+
+async function selectProfile(profileId) {
+    currentProfileId = profileId;
+    // Clear history when switching profiles
+    await clearChatHistory();
+}
+
+async function fetchChatStatus() {
+    try {
+        const resp = await fetch("/chat/status");
+        const status = await resp.json();
+        updateChatStatusUI(status);
+        return status;
+    } catch (e) {
+        console.error("Error fetching chat status:", e);
+        return null;
+    }
+}
+
+function updateChatStatusUI(status) {
+    const statusEl = document.getElementById("llm-status");
+    const textEl = statusEl.querySelector(".status-text");
+
+    if (status.connected) {
+        statusEl.className = "llm-status connected";
+        textEl.textContent = `${status.provider}:${status.model}`;
+    } else if (status.error) {
+        statusEl.className = "llm-status error";
+        textEl.textContent = "Error";
+    } else {
+        statusEl.className = "llm-status disconnected";
+        textEl.textContent = "Not connected";
+    }
+
+    // Update current profile if provided
+    if (status.current_profile_id) {
+        currentProfileId = status.current_profile_id;
+        const select = document.getElementById("profile-select");
+        select.value = currentProfileId;
+    }
+}
+
+async function sendMessage() {
+    const input = document.getElementById("chat-input");
+    const message = input.value.trim();
+
+    if (!message || isSending) return;
+
+    isSending = true;
+    const sendBtn = document.getElementById("chat-send-btn");
+    sendBtn.disabled = true;
+    sendBtn.textContent = "Sending...";
+
+    // Add user message to UI
+    addMessageToUI("user", message);
+    input.value = "";
+
+    try {
+        const resp = await fetch("/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                message: message,
+                profile_id: currentProfileId,
+            }),
+        });
+        const data = await resp.json();
+
+        if (data.error) {
+            addMessageToUI("error", data.error);
+        } else {
+            addMessageToUI("assistant", data.message);
+        }
+
+        // Refresh status to update connection state
+        await fetchChatStatus();
+    } catch (e) {
+        console.error("Error sending message:", e);
+        addMessageToUI("error", "Failed to send message. Check your LLM configuration.");
+    } finally {
+        isSending = false;
+        sendBtn.disabled = false;
+        sendBtn.textContent = "Send";
+    }
+}
+
+function addMessageToUI(role, content) {
+    const container = document.getElementById("chat-messages");
+
+    // Remove placeholder if present
+    const placeholder = container.querySelector(".placeholder");
+    if (placeholder) {
+        placeholder.remove();
+    }
+
+    const messageEl = document.createElement("div");
+    messageEl.className = `chat-message ${role}`;
+
+    const roleLabel = role === "user" ? "You" : role === "assistant" ? "Reachy" : "Error";
+    messageEl.innerHTML = `
+        <span class="message-role">${roleLabel}</span>
+        <span class="message-content">${escapeHtml(content)}</span>
+    `;
+
+    container.appendChild(messageEl);
+    container.scrollTop = container.scrollHeight;
+
+    // Track messages
+    if (role !== "error") {
+        chatMessages.push({ role, content });
+    }
+}
+
+async function clearChatHistory() {
+    try {
+        await fetch("/chat/history", { method: "DELETE" });
+        chatMessages = [];
+        const container = document.getElementById("chat-messages");
+        container.innerHTML = '<p class="placeholder">Send a message to start chatting with Reachy.</p>';
+    } catch (e) {
+        console.error("Error clearing chat history:", e);
+    }
+}
+
+async function loadChatHistory() {
+    try {
+        const resp = await fetch("/chat/history");
+        const history = await resp.json();
+
+        if (history.length > 0) {
+            const container = document.getElementById("chat-messages");
+            container.innerHTML = "";
+
+            for (const msg of history) {
+                addMessageToUI(msg.role, msg.content);
+            }
+        }
+    } catch (e) {
+        console.error("Error loading chat history:", e);
+    }
+}
+
+// === Profile Management Modal ===
+function openProfileModal() {
+    const modal = document.getElementById("profile-modal");
+    modal.classList.remove("hidden");
+    renderProfileList();
+    resetProfileForm();
+}
+
+function closeProfileModal() {
+    const modal = document.getElementById("profile-modal");
+    modal.classList.add("hidden");
+}
+
+function renderProfileList() {
+    const listEl = document.getElementById("profile-list");
+    listEl.innerHTML = profiles
+        .map(
+            (p) => `
+        <div class="profile-item">
+            <div class="profile-info">
+                <strong>${escapeHtml(p.name)}</strong>
+                <span>${escapeHtml(p.description || "")}</span>
+            </div>
+            <div class="profile-actions">
+                <button onclick="editProfile('${p.id}')" class="edit-btn">Edit</button>
+                <button onclick="deleteProfile('${p.id}')" class="delete-btn">Delete</button>
+            </div>
+        </div>
+    `
+        )
+        .join("");
+}
+
+function resetProfileForm() {
+    document.getElementById("profile-form-title").textContent = "Create New Profile";
+    document.getElementById("edit-profile-id").value = "";
+    document.getElementById("profile-name").value = "";
+    document.getElementById("profile-description").value = "";
+    document.getElementById("profile-prompt").value = "";
+}
+
+function editProfile(profileId) {
+    const profile = profiles.find((p) => p.id === profileId);
+    if (!profile) return;
+
+    document.getElementById("profile-form-title").textContent = "Edit Profile";
+    document.getElementById("edit-profile-id").value = profile.id;
+    document.getElementById("profile-name").value = profile.name;
+    document.getElementById("profile-description").value = profile.description || "";
+    document.getElementById("profile-prompt").value = profile.system_prompt;
+}
+
+async function saveProfile() {
+    const editId = document.getElementById("edit-profile-id").value;
+    const name = document.getElementById("profile-name").value.trim();
+    const description = document.getElementById("profile-description").value.trim();
+    const systemPrompt = document.getElementById("profile-prompt").value.trim();
+
+    if (!name || !systemPrompt) {
+        alert("Name and system prompt are required.");
+        return;
+    }
+
+    try {
+        let resp;
+        if (editId) {
+            // Update existing profile
+            resp = await fetch(`/profiles/${editId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: name,
+                    description: description,
+                    system_prompt: systemPrompt,
+                }),
+            });
+        } else {
+            // Create new profile
+            resp = await fetch("/profiles", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: name,
+                    description: description,
+                    system_prompt: systemPrompt,
+                }),
+            });
+        }
+
+        const data = await resp.json();
+        if (data.error) {
+            alert(data.error);
+        } else {
+            await loadProfiles();
+            renderProfileList();
+            resetProfileForm();
+        }
+    } catch (e) {
+        console.error("Error saving profile:", e);
+        alert("Failed to save profile.");
+    }
+}
+
+async function deleteProfile(profileId) {
+    if (!confirm("Are you sure you want to delete this profile?")) {
+        return;
+    }
+
+    try {
+        const resp = await fetch(`/profiles/${profileId}`, { method: "DELETE" });
+        const data = await resp.json();
+
+        if (data.error) {
+            alert(data.error);
+        } else {
+            await loadProfiles();
+            renderProfileList();
+        }
+    } catch (e) {
+        console.error("Error deleting profile:", e);
+        alert("Failed to delete profile.");
+    }
+}
+
+// Chat Event Listeners
+document.getElementById("profile-select").addEventListener("change", (e) => {
+    selectProfile(e.target.value);
+});
+
+document.getElementById("chat-send-btn").addEventListener("click", () => {
+    sendMessage();
+});
+
+document.getElementById("chat-input").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+        sendMessage();
+    }
+});
+
+document.getElementById("chat-clear-btn").addEventListener("click", () => {
+    clearChatHistory();
+});
+
+// Profile Modal Event Listeners
+document.getElementById("manage-profiles-btn").addEventListener("click", () => {
+    openProfileModal();
+});
+
+document.getElementById("modal-close-btn").addEventListener("click", () => {
+    closeProfileModal();
+});
+
+document.getElementById("profile-save-btn").addEventListener("click", () => {
+    saveProfile();
+});
+
+document.getElementById("profile-cancel-btn").addEventListener("click", () => {
+    resetProfileForm();
+});
+
+// Close modal when clicking outside
+document.getElementById("profile-modal").addEventListener("click", (e) => {
+    if (e.target.id === "profile-modal") {
+        closeProfileModal();
+    }
+});
+
+// Initialize LLM Chat
+loadProfiles().then(() => {
+    fetchChatStatus();
+    loadChatHistory();
+});

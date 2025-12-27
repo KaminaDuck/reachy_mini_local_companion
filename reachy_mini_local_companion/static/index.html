@@ -79,6 +79,68 @@
         </div>
     </section>
 
+    <!-- LLM Chat Section -->
+    <section id="chat-section">
+        <h2>Chat with Reachy</h2>
+
+        <div id="chat-controls">
+            <div class="chat-config">
+                <label for="profile-select">Personality:</label>
+                <select id="profile-select">
+                    <option value="">Loading profiles...</option>
+                </select>
+                <button id="manage-profiles-btn" type="button">Manage</button>
+            </div>
+
+            <div id="llm-status" class="llm-status disconnected">
+                <span class="status-indicator"></span>
+                <span class="status-text">Disconnected</span>
+            </div>
+        </div>
+
+        <div id="chat-messages">
+            <p class="placeholder">Send a message to start chatting with Reachy.</p>
+        </div>
+
+        <div id="chat-input-container">
+            <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
+            <button id="chat-send-btn" type="button">Send</button>
+        </div>
+
+        <div id="chat-actions">
+            <button id="chat-clear-btn" type="button">Clear History</button>
+        </div>
+    </section>
+
+    <!-- Profile Management Modal -->
+    <div id="profile-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Manage Profiles</h3>
+                <button id="modal-close-btn" type="button" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="profile-list">
+                    <!-- Profiles will be inserted here -->
+                </div>
+                <div class="profile-form">
+                    <h4 id="profile-form-title">Create New Profile</h4>
+                    <input type="hidden" id="edit-profile-id">
+                    <label for="profile-name">Name:</label>
+                    <input type="text" id="profile-name" placeholder="Profile name">
+                    <label for="profile-description">Description:</label>
+                    <input type="text" id="profile-description" placeholder="Short description">
+                    <label for="profile-prompt">System Prompt:</label>
+                    <textarea id="profile-prompt" rows="4" placeholder="Enter the personality prompt..."></textarea>
+                    <div class="profile-form-actions">
+                        <button id="profile-save-btn" type="button">Save Profile</button>
+                        <button id="profile-cancel-btn" type="button" class="secondary">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/main.js"></script>
 </body>
 
