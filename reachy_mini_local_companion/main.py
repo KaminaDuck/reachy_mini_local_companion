@@ -107,6 +107,7 @@ class ReachyMiniLocalCompanion(ReachyMiniApp):
             enabled: bool | None = None
             selected_voice: str | None = None
             auto_speak_llm: bool | None = None
+            volume: int | None = None
 
         class SpeakRequest(BaseModel):
             text: str
@@ -249,7 +250,8 @@ class ReachyMiniLocalCompanion(ReachyMiniApp):
                 # Auto-speak LLM response if enabled
                 if tts_config.auto_speak_llm and tts_config.enabled and tts_engine.is_ready:
                     try:
-                        tts_engine.speak(response.message, reachy_mini)
+                        volume = tts_config.volume / 100.0  # Convert 0-100 to 0.0-1.0
+                        tts_engine.speak(response.message, reachy_mini, volume=volume)
                     except RuntimeError as tts_err:
                         logger.warning("Auto-speak failed: %s", tts_err)
 
@@ -328,6 +330,9 @@ class ReachyMiniLocalCompanion(ReachyMiniApp):
                 tts_config.enabled = config.enabled
             if config.auto_speak_llm is not None:
                 tts_config.auto_speak_llm = config.auto_speak_llm
+            if config.volume is not None:
+                # Clamp volume to valid range
+                tts_config.volume = max(0, min(100, config.volume))
 
             # Handle voice change
             new_voice = config.selected_voice
@@ -350,6 +355,7 @@ class ReachyMiniLocalCompanion(ReachyMiniApp):
                 "current_voice": status.current_voice,
                 "speaking": status.speaking,
                 "auto_speak_llm": tts_config.auto_speak_llm,
+                "volume": tts_config.volume,
                 "error": status.error,
             }
 
@@ -362,7 +368,8 @@ class ReachyMiniLocalCompanion(ReachyMiniApp):
                 return {"status": "error", "error": "No voice loaded"}
 
             try:
-                tts_engine.speak(request.text, reachy_mini)
+                volume = tts_config.volume / 100.0  # Convert 0-100 to 0.0-1.0
+                tts_engine.speak(request.text, reachy_mini, volume=volume)
                 return {"status": "ok", "text": request.text}
             except RuntimeError as e:
                 return {"status": "error", "error": str(e)}
@@ -375,7 +382,8 @@ class ReachyMiniLocalCompanion(ReachyMiniApp):
 
             try:
                 tts_engine.load_voice(voice_id)
-                tts_engine.speak(sample_text, reachy_mini)
+                volume = tts_config.volume / 100.0  # Convert 0-100 to 0.0-1.0
+                tts_engine.speak(sample_text, reachy_mini, volume=volume)
 
                 # Restore original voice if different
                 if original_voice and original_voice != voice_id:

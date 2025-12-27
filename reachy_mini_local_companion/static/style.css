@@ -287,6 +287,19 @@ body {
     min-width: 200px;
 }
 
+.tts-config input[type="range"] {
+    flex: 1;
+    max-width: 150px;
+    cursor: pointer;
+}
+
+#volume-value {
+    min-width: 40px;
+    text-align: right;
+    font-size: 14px;
+    color: #495057;
+}
+
 /* TTS Status Panel */
 #tts-status-panel {
     display: flex;

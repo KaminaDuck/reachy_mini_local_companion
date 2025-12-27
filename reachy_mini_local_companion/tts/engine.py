@@ -8,8 +8,57 @@ import threading
 import wave
 from typing import TYPE_CHECKING, Iterator
 
+import numpy as np
+
 from reachy_mini_local_companion.tts.models import TTSStatus
 from reachy_mini_local_companion.tts.voice_manager import VoiceManager
+
+
+def scale_audio_volume(wav_bytes: bytes, volume: float) -> bytes:
+    """Scale audio samples in a WAV file by volume factor.
+
+    Args:
+        wav_bytes: WAV audio data as bytes.
+        volume: Volume factor (0.0 to 1.0).
+
+    Returns:
+        Scaled WAV audio data as bytes.
+    """
+    if volume >= 1.0:
+        return wav_bytes  # No scaling needed
+
+    if volume <= 0.0:
+        # Return silence - keep same format but zero samples
+        with wave.open(io.BytesIO(wav_bytes), "rb") as wav_in:
+            params = wav_in.getparams()
+            frames = wav_in.readframes(params.nframes)
+
+        samples = np.frombuffer(frames, dtype=np.int16)
+        silent = np.zeros_like(samples)
+
+        output = io.BytesIO()
+        with wave.open(output, "wb") as wav_out:
+            wav_out.setparams(params)
+            wav_out.writeframes(silent.tobytes())
+
+        return output.getvalue()
+
+    # Read original WAV
+    with wave.open(io.BytesIO(wav_bytes), "rb") as wav_in:
+        params = wav_in.getparams()
+        frames = wav_in.readframes(params.nframes)
+
+    # Scale samples with clipping prevention
+    samples = np.frombuffer(frames, dtype=np.int16).astype(np.float32)
+    scaled = np.clip(samples * volume, -32768, 32767).astype(np.int16)
+
+    # Write scaled WAV
+    output = io.BytesIO()
+    with wave.open(output, "wb") as wav_out:
+        wav_out.setparams(params)
+        wav_out.writeframes(scaled.tobytes())
+
+    return output.getvalue()
 
 if TYPE_CHECKING:
     from piper.voice import PiperVoice
@@ -85,11 +134,12 @@ class PiperTTSEngine:
             self._voice_id = None
             logger.info("Voice unloaded")
 
-    def synthesize(self, text: str) -> bytes:
+    def synthesize(self, text: str, volume: float = 1.0) -> bytes:
         """Synthesize text to WAV audio bytes.
 
         Args:
             text: The text to synthesize.
+            volume: Volume level (0.0 to 1.0). Default is 1.0 (full volume).
 
         Returns:
             WAV audio data as bytes.
@@ -109,7 +159,13 @@ class PiperTTSEngine:
                 wav_file.setframerate(self._voice.config.sample_rate)
                 self._voice.synthesize(text, wav_file)
 
-            return audio_buffer.getvalue()
+            wav_bytes = audio_buffer.getvalue()
+
+            # Apply volume scaling if not at full volume
+            if volume < 1.0:
+                wav_bytes = scale_audio_volume(wav_bytes, volume)
+
+            return wav_bytes
 
     def synthesize_stream(self, text: str) -> Iterator[bytes]:
         """Stream audio synthesis for lower latency on longer text.
@@ -130,12 +186,13 @@ class PiperTTSEngine:
             for audio_bytes in self._voice.synthesize_stream_raw(text):
                 yield audio_bytes
 
-    def speak(self, text: str, reachy_mini: "ReachyMini") -> None:
+    def speak(self, text: str, reachy_mini: "ReachyMini", volume: float = 1.0) -> None:
         """Synthesize text and play through the robot's speaker.
 
         Args:
             text: The text to speak.
             reachy_mini: The Reachy Mini instance for speaker access.
+            volume: Volume level (0.0 to 1.0). Default is 1.0 (full volume).
 
         Raises:
             RuntimeError: If no voice is loaded or playback fails.
@@ -144,9 +201,14 @@ class PiperTTSEngine:
             logger.debug("Empty text, skipping speech")
             return
 
+        # Skip playback entirely if volume is 0
+        if volume <= 0.0:
+            logger.debug("Volume is 0, skipping speech")
+            return
+
         self._speaking = True
         try:
-            audio_bytes = self.synthesize(text)
+            audio_bytes = self.synthesize(text, volume=volume)
 
             # Write to temp file for speaker playback
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:

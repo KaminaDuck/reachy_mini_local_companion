@@ -267,8 +267,9 @@ fetchSTTStatus().then((status) => {
 
 // === Text-to-Speech Controls ===
 let ttsVoices = [];
-let ttsConfig = { enabled: true, selected_voice: "", auto_speak_llm: false };
+let ttsConfig = { enabled: true, selected_voice: "", auto_speak_llm: false, volume: 80 };
 let ttsSpeaking = false;
+let volumeDebounceTimer = null;
 
 async function fetchTTSStatus() {
     try {
@@ -343,6 +344,14 @@ function updateTTSConfigUI() {
     const select = document.getElementById("voice-select");
     if (ttsConfig.selected_voice) {
         select.value = ttsConfig.selected_voice;
+    }
+
+    // Update volume slider
+    const volumeSlider = document.getElementById("volume-slider");
+    const volumeValue = document.getElementById("volume-value");
+    if (ttsConfig.volume !== undefined) {
+        volumeSlider.value = ttsConfig.volume;
+        volumeValue.textContent = `${ttsConfig.volume}%`;
     }
 }
 
@@ -491,6 +500,24 @@ document.getElementById("voice-select").addEventListener("change", async (e) => 
 
 document.getElementById("auto-speak-checkbox").addEventListener("change", async (e) => {
     await updateTTSConfig({ auto_speak_llm: e.target.checked });
+});
+
+// Volume slider - update display on input (real-time feedback)
+document.getElementById("volume-slider").addEventListener("input", (e) => {
+    document.getElementById("volume-value").textContent = `${e.target.value}%`;
+});
+
+// Volume slider - debounced API call on change
+document.getElementById("volume-slider").addEventListener("change", async (e) => {
+    const volume = parseInt(e.target.value, 10);
+    // Clear any pending debounce timer
+    if (volumeDebounceTimer) {
+        clearTimeout(volumeDebounceTimer);
+    }
+    // Debounce the API call
+    volumeDebounceTimer = setTimeout(async () => {
+        await updateTTSConfig({ volume: volume });
+    }, 100);
 });
 
 document.getElementById("tts-speak-btn").addEventListener("click", () => {

@@ -32,6 +32,7 @@ class TTSConfig(BaseModel):
     selected_voice: str = "en_US-lessac-medium"
     auto_speak_llm: bool = False
     speaking_rate: float = 1.0  # Speech speed multiplier (not used by Piper, for future)
+    volume: int = 80  # Volume level 0-100%
 
 
 class TTSStatus(BaseModel):
