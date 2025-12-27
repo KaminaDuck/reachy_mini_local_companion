@@ -1,0 +1,1 @@
+Always defer to the live and official documentation in [Claude Code](https://anthropic.mintlify.app/)
