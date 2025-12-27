@@ -79,6 +79,45 @@
         </div>
     </section>
 
+    <!-- Text-to-Speech Section -->
+    <section id="tts-section">
+        <h2>Text-to-Speech</h2>
+
+        <div id="tts-controls">
+            <label class="tts-toggle">
+                <input type="checkbox" id="tts-enabled" checked>
+                Enable TTS
+            </label>
+
+            <div class="tts-config">
+                <label for="voice-select">Voice:</label>
+                <select id="voice-select">
+                    <option value="">Loading voices...</option>
+                </select>
+            </div>
+
+            <div class="tts-config">
+                <label class="tts-toggle">
+                    <input type="checkbox" id="auto-speak-checkbox">
+                    Auto-speak LLM responses
+                </label>
+            </div>
+        </div>
+
+        <div id="tts-status-panel">
+            <div id="tts-state" class="tts-state idle">
+                <span class="state-indicator"></span>
+                <span class="state-text">Not Ready</span>
+            </div>
+            <div id="tts-voice-status">Voice: None loaded</div>
+        </div>
+
+        <div id="tts-test">
+            <input type="text" id="tts-test-text" placeholder="Enter text to speak...">
+            <button id="tts-speak-btn" disabled>Speak</button>
+        </div>
+    </section>
+
     <!-- LLM Chat Section -->
     <section id="chat-section">
         <h2>Chat with Reachy</h2>

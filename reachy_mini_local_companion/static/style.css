@@ -244,6 +244,161 @@ body {
     flex: 1;
 }
 
+/* Text-to-Speech Section */
+#tts-section {
+    margin-top: 32px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    max-width: 600px;
+}
+
+#tts-section h2 {
+    margin-top: 0;
+    margin-bottom: 16px;
+    color: #2c3e50;
+}
+
+#tts-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.tts-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.tts-config {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tts-config select {
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    background: white;
+    min-width: 200px;
+}
+
+/* TTS Status Panel */
+#tts-status-panel {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px;
+    background: white;
+    border-radius: 6px;
+    margin-bottom: 16px;
+}
+
+.tts-state {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+.tts-state .state-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.tts-state.idle {
+    background: #ecf0f1;
+}
+.tts-state.idle .state-indicator {
+    background: #95a5a6;
+}
+
+.tts-state.ready {
+    background: #d4edda;
+}
+.tts-state.ready .state-indicator {
+    background: #28a745;
+}
+
+.tts-state.speaking {
+    background: #cce5ff;
+}
+.tts-state.speaking .state-indicator {
+    background: #007bff;
+    animation: pulse 0.5s infinite;
+}
+
+.tts-state.error {
+    background: #f8d7da;
+}
+.tts-state.error .state-indicator {
+    background: #dc3545;
+}
+
+#tts-voice-status {
+    font-size: 14px;
+    color: #6c757d;
+}
+
+#tts-voice-status.loaded {
+    color: #28a745;
+}
+
+#tts-voice-status.loading {
+    color: #f39c12;
+}
+
+#tts-voice-status.error {
+    color: #dc3545;
+}
+
+/* TTS Test Input */
+#tts-test {
+    display: flex;
+    gap: 8px;
+}
+
+#tts-test-text {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    outline: none;
+}
+
+#tts-test-text:focus {
+    border-color: #27ae60;
+    box-shadow: 0 0 0 2px rgba(39, 174, 96, 0.2);
+}
+
+#tts-speak-btn {
+    padding: 10px 20px;
+    background: #27ae60;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+#tts-speak-btn:hover:not(:disabled) {
+    background: #219a52;
+}
+
+#tts-speak-btn:disabled {
+    background: #bdc3c7;
+    cursor: not-allowed;
+}
+
 /* LLM Chat Section */
 #chat-section {
     margin-top: 32px;

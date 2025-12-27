@@ -265,6 +265,251 @@ fetchSTTStatus().then((status) => {
     }
 });
 
+// === Text-to-Speech Controls ===
+let ttsVoices = [];
+let ttsConfig = { enabled: true, selected_voice: "", auto_speak_llm: false };
+let ttsSpeaking = false;
+
+async function fetchTTSStatus() {
+    try {
+        const resp = await fetch("/tts/status");
+        const status = await resp.json();
+        updateTTSStatusUI(status);
+        return status;
+    } catch (e) {
+        console.error("Error fetching TTS status:", e);
+        return null;
+    }
+}
+
+async function fetchTTSConfig() {
+    try {
+        const resp = await fetch("/tts/config");
+        ttsConfig = await resp.json();
+        updateTTSConfigUI();
+        return ttsConfig;
+    } catch (e) {
+        console.error("Error fetching TTS config:", e);
+        return null;
+    }
+}
+
+async function loadTTSVoices() {
+    try {
+        const resp = await fetch("/tts/voices");
+        ttsVoices = await resp.json();
+        populateVoiceSelect();
+        return ttsVoices;
+    } catch (e) {
+        console.error("Error loading TTS voices:", e);
+        return [];
+    }
+}
+
+function populateVoiceSelect() {
+    const select = document.getElementById("voice-select");
+
+    // Group by installed status
+    const installed = ttsVoices.filter((v) => v.installed);
+    const available = ttsVoices.filter((v) => !v.installed);
+
+    let html = '<option value="">Select a voice...</option>';
+
+    if (installed.length > 0) {
+        html += '<optgroup label="Installed">';
+        installed.forEach((v) => {
+            const selected = v.id === ttsConfig.selected_voice ? "selected" : "";
+            html += `<option value="${v.id}" ${selected}>${v.name} (${v.quality})</option>`;
+        });
+        html += "</optgroup>";
+    }
+
+    if (available.length > 0) {
+        html += '<optgroup label="Available to Install">';
+        available.forEach((v) => {
+            html += `<option value="${v.id}">${v.name} (${v.quality}) - ${v.size_mb}MB</option>`;
+        });
+        html += "</optgroup>";
+    }
+
+    select.innerHTML = html;
+    select.value = ttsConfig.selected_voice;
+}
+
+function updateTTSConfigUI() {
+    document.getElementById("tts-enabled").checked = ttsConfig.enabled;
+    document.getElementById("auto-speak-checkbox").checked = ttsConfig.auto_speak_llm;
+
+    const select = document.getElementById("voice-select");
+    if (ttsConfig.selected_voice) {
+        select.value = ttsConfig.selected_voice;
+    }
+}
+
+function updateTTSStatusUI(status) {
+    const stateEl = document.getElementById("tts-state");
+    const stateTextEl = stateEl.querySelector(".state-text");
+    const voiceStatus = document.getElementById("tts-voice-status");
+    const speakBtn = document.getElementById("tts-speak-btn");
+
+    ttsSpeaking = status.speaking;
+
+    if (status.speaking) {
+        stateEl.className = "tts-state speaking";
+        stateTextEl.textContent = "Speaking...";
+    } else if (status.ready) {
+        stateEl.className = "tts-state ready";
+        stateTextEl.textContent = "Ready";
+    } else if (status.error) {
+        stateEl.className = "tts-state error";
+        stateTextEl.textContent = "Error";
+    } else {
+        stateEl.className = "tts-state idle";
+        stateTextEl.textContent = "Not Ready";
+    }
+
+    if (status.current_voice) {
+        const voice = ttsVoices.find((v) => v.id === status.current_voice);
+        voiceStatus.textContent = `Voice: ${voice ? voice.name : status.current_voice}`;
+        voiceStatus.className = "loaded";
+    } else {
+        voiceStatus.textContent = "Voice: None loaded";
+        voiceStatus.className = "";
+    }
+
+    speakBtn.disabled = !status.ready || status.speaking || !ttsConfig.enabled;
+
+    if (status.error) {
+        voiceStatus.textContent = `Error: ${status.error}`;
+        voiceStatus.className = "error";
+    }
+}
+
+async function updateTTSConfig(config) {
+    try {
+        const resp = await fetch("/tts/config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(config),
+        });
+        const data = await resp.json();
+        if (data.status === "error") {
+            showTTSError(data.error);
+        } else {
+            ttsConfig = data.config;
+            updateTTSConfigUI();
+            await fetchTTSStatus();
+        }
+        return data;
+    } catch (e) {
+        console.error("Error updating TTS config:", e);
+        showTTSError("Failed to update configuration");
+        return null;
+    }
+}
+
+async function selectVoice(voiceId) {
+    if (!voiceId) return;
+
+    const voice = ttsVoices.find((v) => v.id === voiceId);
+    if (!voice) return;
+
+    const voiceStatus = document.getElementById("tts-voice-status");
+
+    // If not installed, install first
+    if (!voice.installed) {
+        voiceStatus.textContent = "Installing voice...";
+        voiceStatus.className = "loading";
+
+        try {
+            const resp = await fetch(`/tts/voices/${voiceId}/install`, { method: "POST" });
+            const data = await resp.json();
+
+            if (data.status === "error") {
+                showTTSError(data.error);
+                return;
+            }
+
+            // Refresh voice list
+            await loadTTSVoices();
+        } catch (e) {
+            console.error("Error installing voice:", e);
+            showTTSError("Failed to install voice");
+            return;
+        }
+    }
+
+    // Update config to use this voice
+    await updateTTSConfig({ selected_voice: voiceId });
+}
+
+async function speakText() {
+    const textInput = document.getElementById("tts-test-text");
+    const text = textInput.value.trim();
+
+    if (!text) return;
+
+    const speakBtn = document.getElementById("tts-speak-btn");
+    speakBtn.disabled = true;
+    speakBtn.textContent = "Speaking...";
+
+    try {
+        const resp = await fetch("/tts/speak", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text }),
+        });
+        const data = await resp.json();
+
+        if (data.status === "error") {
+            showTTSError(data.error);
+        }
+    } catch (e) {
+        console.error("Error speaking text:", e);
+        showTTSError("Failed to speak text");
+    } finally {
+        speakBtn.disabled = false;
+        speakBtn.textContent = "Speak";
+        await fetchTTSStatus();
+    }
+}
+
+function showTTSError(message) {
+    const voiceStatus = document.getElementById("tts-voice-status");
+    voiceStatus.textContent = `Error: ${message}`;
+    voiceStatus.className = "error";
+}
+
+// TTS Event Listeners
+document.getElementById("tts-enabled").addEventListener("change", async (e) => {
+    await updateTTSConfig({ enabled: e.target.checked });
+});
+
+document.getElementById("voice-select").addEventListener("change", async (e) => {
+    await selectVoice(e.target.value);
+});
+
+document.getElementById("auto-speak-checkbox").addEventListener("change", async (e) => {
+    await updateTTSConfig({ auto_speak_llm: e.target.checked });
+});
+
+document.getElementById("tts-speak-btn").addEventListener("click", () => {
+    speakText();
+});
+
+document.getElementById("tts-test-text").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+        speakText();
+    }
+});
+
+// Initialize TTS
+fetchTTSConfig().then(() => {
+    loadTTSVoices().then(() => {
+        fetchTTSStatus();
+    });
+});
+
 // === LLM Chat Controls ===
 let profiles = [];
 let currentProfileId = null;

@@ -16,6 +16,7 @@ dependencies = [
     "openwakeword>=0.6.0",
     "webrtcvad>=2.0.10",
     "pydantic-ai-slim[openai]>=0.1.0",
+    "piper-tts>=1.2.0",
 ]
 keywords = ["reachy-mini-app"]
 

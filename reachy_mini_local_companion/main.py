@@ -1,6 +1,7 @@
 import logging
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -20,6 +21,11 @@ from reachy_mini_local_companion.stt.manager import (
     STTEngineType,
     STTManager,
     TranscriptionEvent,
+)
+from reachy_mini_local_companion.tts import (
+    PiperTTSEngine,
+    TTSConfig,
+    VoiceManager,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -73,6 +79,20 @@ class ReachyMiniLocalCompanion(ReachyMiniApp):
         profile_store = ProfileStore()
         chat_agent = LLMChatAgent(profile_store)
 
+        # Initialize TTS
+        tts_cache_dir = Path.home() / ".cache" / "reachy_mini" / "tts_models"
+        voice_manager = VoiceManager(cache_dir=tts_cache_dir)
+        tts_engine = PiperTTSEngine(voice_manager)
+        tts_config = TTSConfig()
+
+        # Try to load default voice if installed
+        try:
+            if voice_manager.is_installed(tts_config.selected_voice):
+                tts_engine.load_voice(tts_config.selected_voice)
+                logger.info(f"Loaded default TTS voice: {tts_config.selected_voice}")
+        except Exception as e:
+            logger.warning(f"Could not load default TTS voice: {e}")
+
         # === Pydantic Models for API ===
         class AntennaState(BaseModel):
             enabled: bool
@@ -82,6 +102,14 @@ class ReachyMiniLocalCompanion(ReachyMiniApp):
             engine: STTEngineType | None = None
             wake_word_enabled: bool | None = None
             wake_word_threshold: float | None = None
+
+        class TTSConfigRequest(BaseModel):
+            enabled: bool | None = None
+            selected_voice: str | None = None
+            auto_speak_llm: bool | None = None
+
+        class SpeakRequest(BaseModel):
+            text: str
 
         # === Existing Endpoints ===
         @self.settings_app.post("/antennas")
@@ -217,13 +245,21 @@ class ReachyMiniLocalCompanion(ReachyMiniApp):
             """Send a message to the LLM and get a response."""
             try:
                 response = chat_agent.chat_sync(request)
+
+                # Auto-speak LLM response if enabled
+                if tts_config.auto_speak_llm and tts_config.enabled and tts_engine.is_ready:
+                    try:
+                        tts_engine.speak(response.message, reachy_mini)
+                    except RuntimeError as tts_err:
+                        logger.warning("Auto-speak failed: %s", tts_err)
+
                 return {
                     "message": response.message,
                     "profile_id": response.profile_id,
                     "profile_name": response.profile_name,
                 }
             except Exception as e:
-                logger.error(f"Chat error: {e}")
+                logger.error("Chat error: %s", e)
                 return {"error": str(e)}
 
         @self.settings_app.delete("/chat/history")
@@ -251,6 +287,103 @@ class ReachyMiniLocalCompanion(ReachyMiniApp):
                 "current_profile_id": current_profile.id if current_profile else None,
                 "current_profile_name": current_profile.name if current_profile else None,
             }
+
+        # === TTS Endpoints ===
+        @self.settings_app.get("/tts/voices")
+        def list_tts_voices() -> list[dict[str, Any]]:
+            """List available TTS voices."""
+            voices = voice_manager.list_voices()
+            return [v.model_dump(mode="json") for v in voices]
+
+        @self.settings_app.post("/tts/voices/{voice_id}/install")
+        def install_tts_voice(voice_id: str) -> dict[str, Any]:
+            """Install a TTS voice."""
+            try:
+                voice_manager.install_voice(voice_id)
+                return {"status": "installed", "voice_id": voice_id}
+            except ValueError as e:
+                return {"status": "error", "error": str(e)}
+            except RuntimeError as e:
+                return {"status": "error", "error": str(e)}
+
+        @self.settings_app.delete("/tts/voices/{voice_id}")
+        def remove_tts_voice(voice_id: str) -> dict[str, Any]:
+            """Remove an installed TTS voice."""
+            if voice_manager.remove_voice(voice_id):
+                return {"status": "removed", "voice_id": voice_id}
+            return {"status": "error", "error": "Voice not found"}
+
+        @self.settings_app.get("/tts/config")
+        def get_tts_config() -> dict[str, Any]:
+            """Get current TTS configuration."""
+            return tts_config.model_dump(mode="json")
+
+        @self.settings_app.post("/tts/config")
+        def update_tts_config(config: TTSConfigRequest) -> dict[str, Any]:
+            """Update TTS configuration."""
+            nonlocal tts_config
+
+            # Update config values
+            if config.enabled is not None:
+                tts_config.enabled = config.enabled
+            if config.auto_speak_llm is not None:
+                tts_config.auto_speak_llm = config.auto_speak_llm
+
+            # Handle voice change
+            new_voice = config.selected_voice
+            if new_voice is not None and new_voice != tts_config.selected_voice:
+                try:
+                    tts_engine.load_voice(new_voice)
+                    tts_config.selected_voice = new_voice
+                except RuntimeError as e:
+                    return {"status": "error", "error": str(e)}
+
+            return {"status": "ok", "config": tts_config.model_dump(mode="json")}
+
+        @self.settings_app.get("/tts/status")
+        def get_tts_status() -> dict[str, Any]:
+            """Get current TTS system status."""
+            status = tts_engine.get_status()
+            return {
+                "enabled": tts_config.enabled,
+                "ready": status.ready,
+                "current_voice": status.current_voice,
+                "speaking": status.speaking,
+                "auto_speak_llm": tts_config.auto_speak_llm,
+                "error": status.error,
+            }
+
+        @self.settings_app.post("/tts/speak")
+        def speak_text(request: SpeakRequest) -> dict[str, Any]:
+            """Synthesize and play text through the speaker."""
+            if not tts_config.enabled:
+                return {"status": "error", "error": "TTS is disabled"}
+            if not tts_engine.is_ready:
+                return {"status": "error", "error": "No voice loaded"}
+
+            try:
+                tts_engine.speak(request.text, reachy_mini)
+                return {"status": "ok", "text": request.text}
+            except RuntimeError as e:
+                return {"status": "error", "error": str(e)}
+
+        @self.settings_app.post("/tts/preview/{voice_id}")
+        def preview_tts_voice(voice_id: str) -> dict[str, Any]:
+            """Preview a voice with sample text."""
+            original_voice = tts_engine.current_voice_id
+            sample_text = "Hello! This is a preview of my voice."
+
+            try:
+                tts_engine.load_voice(voice_id)
+                tts_engine.speak(sample_text, reachy_mini)
+
+                # Restore original voice if different
+                if original_voice and original_voice != voice_id:
+                    tts_engine.load_voice(original_voice)
+
+                return {"status": "ok", "voice_id": voice_id}
+            except RuntimeError as e:
+                return {"status": "error", "error": str(e)}
 
         # === Main control loop ===
         while not stop_event.is_set():
@@ -299,6 +432,7 @@ class ReachyMiniLocalCompanion(ReachyMiniApp):
 
         # Cleanup
         stt_manager.unload_models()
+        tts_engine.unload_voice()
 
 
 if __name__ == "__main__":

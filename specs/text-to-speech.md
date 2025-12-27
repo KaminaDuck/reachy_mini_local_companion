@@ -1,5 +1,48 @@
 # Feature: Local Text-to-Speech with Model Selection
 
+## Implementation Status: COMPLETED
+
+**Date Completed:** 2025-12-26
+
+### Resolution Summary
+
+- **Phase 1 (Foundation):** Completed
+  - Added `piper-tts>=1.2.0` dependency to pyproject.toml
+  - Created TTS module structure with `__init__.py`, `models.py`, `voice_manager.py`, `engine.py`
+  - Implemented voice catalog with 10 voices across 5 languages
+
+- **Phase 2 (Core Implementation):** Completed
+  - Implemented `PiperTTSEngine` with `synthesize()`, `synthesize_stream()`, and `speak()` methods
+  - Voice models download on-demand from HuggingFace to `~/.cache/reachy_mini/tts_models/`
+  - Speaker integration via temp WAV file played through `reachy_mini.speaker.play()`
+
+- **Phase 3 (Integration):** Completed
+  - Added 8 FastAPI endpoints: `/tts/voices`, `/tts/config`, `/tts/status`, `/tts/speak`, `/tts/preview/{voice_id}`, `/tts/voices/{voice_id}/install`, `DELETE /tts/voices/{voice_id}`
+  - Auto-speak LLM responses when enabled via `tts_config.auto_speak_llm`
+  - Web UI with voice selector, auto-speak toggle, test input, and status indicators
+
+### Changes from Original Plan
+
+- **Unit tests deferred:** Tests not created due to platform dependency issues (vosk not available on current platform)
+- **Streaming synthesis:** Implemented in engine but not exposed via endpoint (batch synthesis used for simplicity)
+- **Volume control:** Not implemented (speaker API doesn't expose volume)
+
+### Files Changed
+
+| File | Lines Changed |
+|------|---------------|
+| pyproject.toml | +1 |
+| reachy_mini_local_companion/main.py | +136 |
+| reachy_mini_local_companion/tts/__init__.py | +13 (new) |
+| reachy_mini_local_companion/tts/models.py | +38 (new) |
+| reachy_mini_local_companion/tts/voice_manager.py | +227 (new) |
+| reachy_mini_local_companion/tts/engine.py | +176 (new) |
+| reachy_mini_local_companion/static/index.html | +39 |
+| reachy_mini_local_companion/static/main.js | +245 |
+| reachy_mini_local_companion/static/style.css | +155 |
+
+---
+
 ## Feature Description
 
 Add local, privacy-preserving text-to-speech (TTS) capability to the Reachy Mini Local Companion app. This feature uses locally-running neural TTS models to synthesize speech from text, playing audio through the Reachy Mini's built-in speaker via `mini.speaker.play()`. Users can select from multiple TTS voice models (Piper voices in different qualities and languages) based on their voice quality and performance preferences. This feature completes the voice interaction pipeline alongside the existing STT and LLM chat features.
