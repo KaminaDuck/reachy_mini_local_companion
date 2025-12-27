@@ -24,6 +24,185 @@ body {
     gap: 20px;
 }
 
+/* Emotion Display Section */
+#emotion-section {
+    margin-top: 32px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    max-width: 600px;
+}
+
+#emotion-section h2 {
+    margin-top: 0;
+    margin-bottom: 16px;
+    color: #2c3e50;
+}
+
+/* Emotion Status Panel */
+#emotion-status-panel {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px;
+    background: white;
+    border-radius: 6px;
+    margin-bottom: 16px;
+}
+
+.emotion-state {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+.emotion-state .state-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.emotion-state.idle {
+    background: #ecf0f1;
+}
+
+.emotion-state.idle .state-indicator {
+    background: #95a5a6;
+}
+
+.emotion-state.playing {
+    background: #fff3cd;
+}
+
+.emotion-state.playing .state-indicator {
+    background: #f39c12;
+    animation: pulse 0.5s infinite;
+}
+
+/* Emotion Grid */
+#emotion-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+@media (max-width: 500px) {
+    #emotion-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.emotion-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 12px 8px;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 70px;
+}
+
+.emotion-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.emotion-btn:active {
+    transform: translateY(0);
+}
+
+.emotion-btn.active {
+    border-color: #f39c12;
+    background: #fff3cd;
+}
+
+.emotion-icon {
+    font-size: 24px;
+    line-height: 1;
+}
+
+.emotion-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #495057;
+}
+
+/* Emotion-specific hover colors */
+.emotion-btn[data-emotion="happy"]:hover {
+    background: #fff9e6;
+    border-color: #ffc107;
+}
+
+.emotion-btn[data-emotion="sad"]:hover {
+    background: #e8f4fd;
+    border-color: #6c9bd1;
+}
+
+.emotion-btn[data-emotion="curious"]:hover {
+    background: #f0e6ff;
+    border-color: #9b59b6;
+}
+
+.emotion-btn[data-emotion="excited"]:hover {
+    background: #ffe6f0;
+    border-color: #e91e63;
+}
+
+.emotion-btn[data-emotion="sleepy"]:hover {
+    background: #e6f0ff;
+    border-color: #5c7cfa;
+}
+
+.emotion-btn[data-emotion="surprised"]:hover {
+    background: #fff0e6;
+    border-color: #fd7e14;
+}
+
+.emotion-btn[data-emotion="angry"]:hover {
+    background: #ffe6e6;
+    border-color: #dc3545;
+}
+
+.emotion-btn[data-emotion="confused"]:hover {
+    background: #f0f0f0;
+    border-color: #6c757d;
+}
+
+/* Emotion Actions */
+#emotion-actions {
+    display: flex;
+    gap: 10px;
+}
+
+#emotion-stop-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    background: #dc3545;
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+#emotion-stop-btn:hover:not(:disabled) {
+    background: #c82333;
+}
+
+#emotion-stop-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
 /* Speech-to-Text Section */
 #stt-section {
     margin-top: 32px;

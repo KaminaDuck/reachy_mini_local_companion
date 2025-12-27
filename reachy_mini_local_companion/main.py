@@ -9,6 +9,10 @@ from pydantic import BaseModel
 from reachy_mini import ReachyMini, ReachyMiniApp
 from reachy_mini.utils import create_head_pose
 
+from reachy_mini_local_companion.emotions import (
+    EMOTIONS,
+    list_emotions,
+)
 from reachy_mini_local_companion.llm.agent import LLMChatAgent
 from reachy_mini_local_companion.llm.models import (
     ChatRequest,
@@ -111,6 +115,16 @@ class ReachyMiniLocalCompanion(ReachyMiniApp):
 
         class SpeakRequest(BaseModel):
             text: str
+
+        class EmotionRequest(BaseModel):
+            name: str
+
+        # === Emotion State ===
+        current_emotion: str | None = None
+        emotion_requested: str | None = None
+        emotion_stop_requested: bool = False
+        emotion_keyframe_index: int = 0
+        emotion_keyframe_start_time: float = 0.0
 
         # === Existing Endpoints ===
         @self.settings_app.post("/antennas")
@@ -393,19 +407,126 @@ class ReachyMiniLocalCompanion(ReachyMiniApp):
             except RuntimeError as e:
                 return {"status": "error", "error": str(e)}
 
+        # === Emotion Endpoints ===
+        @self.settings_app.get("/emotions")
+        def get_emotions() -> list[dict[str, str]]:
+            """List available emotions."""
+            return list_emotions()
+
+        @self.settings_app.post("/emotion")
+        def trigger_emotion(request: EmotionRequest) -> dict[str, Any]:
+            """Trigger an emotion by name."""
+            nonlocal emotion_requested, emotion_stop_requested
+
+            if request.name not in EMOTIONS:
+                return {"status": "error", "error": f"Unknown emotion: {request.name}"}
+
+            emotion_requested = request.name
+            emotion_stop_requested = False
+            logger.info("Emotion requested: %s", request.name)
+            return {"status": "queued", "emotion": request.name}
+
+        @self.settings_app.post("/emotion/stop")
+        def stop_emotion() -> dict[str, str]:
+            """Stop the current emotion and return to idle."""
+            nonlocal emotion_stop_requested
+            emotion_stop_requested = True
+            logger.info("Emotion stop requested")
+            return {"status": "stopping"}
+
+        @self.settings_app.get("/emotion/status")
+        def get_emotion_status() -> dict[str, Any]:
+            """Get current emotion status."""
+            return {
+                "current_emotion": current_emotion,
+                "queued_emotion": emotion_requested,
+            }
+
         # === Main control loop ===
         while not stop_event.is_set():
             t = time.time() - t0
 
-            yaw_deg = 30.0 * np.sin(2.0 * np.pi * 0.2 * t)
-            head_pose = create_head_pose(yaw=yaw_deg, degrees=True)
+            # === Emotion Execution ===
+            # Check if a new emotion was requested
+            if emotion_requested is not None and current_emotion is None:
+                current_emotion = emotion_requested
+                emotion_requested = None
+                emotion_keyframe_index = 0
+                emotion_keyframe_start_time = time.time()
+                logger.info("Starting emotion: %s", current_emotion)
 
-            if antennas_enabled:
-                amp_deg = 25.0
-                a = amp_deg * np.sin(2.0 * np.pi * 0.5 * t)
-                antennas_deg = np.array([a, -a])
-            else:
-                antennas_deg = np.array([0.0, 0.0])
+                # Play sound if defined
+                emotion_profile = EMOTIONS.get(current_emotion)
+                if emotion_profile and emotion_profile.sound:
+                    try:
+                        reachy_mini.media.play_sound(emotion_profile.sound)
+                    except Exception as e:
+                        logger.debug("Emotion sound not found: %s", e)
+
+            # Execute emotion keyframes
+            if current_emotion is not None:
+                emotion_profile = EMOTIONS.get(current_emotion)
+                if emotion_profile and emotion_keyframe_index < len(emotion_profile.keyframes):
+                    keyframe = emotion_profile.keyframes[emotion_keyframe_index]
+                    elapsed = time.time() - emotion_keyframe_start_time
+
+                    # Check if current keyframe duration has elapsed
+                    if elapsed >= keyframe.duration:
+                        emotion_keyframe_index += 1
+                        emotion_keyframe_start_time = time.time()
+
+                        if emotion_keyframe_index >= len(emotion_profile.keyframes):
+                            # Emotion complete
+                            logger.info("Emotion complete: %s", current_emotion)
+                            current_emotion = None
+                    else:
+                        # Interpolate to keyframe target using goto_target
+                        head_pose = create_head_pose(
+                            yaw=keyframe.head_yaw,
+                            pitch=keyframe.head_pitch,
+                            roll=keyframe.head_roll,
+                            degrees=True,
+                        )
+                        antennas_rad = np.array([keyframe.antenna_right, keyframe.antenna_left])
+
+                        # Use goto_target for smooth interpolation
+                        remaining = keyframe.duration - elapsed
+                        if remaining > 0.02:
+                            reachy_mini.goto_target(
+                                head=head_pose,
+                                antennas=antennas_rad,
+                                duration=remaining,
+                            )
+                            # Wait for movement to complete (minus small buffer for loop timing)
+                            time.sleep(max(0, remaining - 0.02))
+                        else:
+                            reachy_mini.set_target(head=head_pose, antennas=antennas_rad)
+
+                # Check for stop request
+                if emotion_stop_requested:
+                    logger.info("Emotion stopped: %s", current_emotion)
+                    current_emotion = None
+                    emotion_stop_requested = False
+                    emotion_keyframe_index = 0
+
+            # === Idle Animation (when no emotion is playing) ===
+            if current_emotion is None:
+                yaw_deg = 30.0 * np.sin(2.0 * np.pi * 0.2 * t)
+                head_pose = create_head_pose(yaw=yaw_deg, degrees=True)
+
+                if antennas_enabled:
+                    amp_deg = 25.0
+                    a = amp_deg * np.sin(2.0 * np.pi * 0.5 * t)
+                    antennas_deg = np.array([a, -a])
+                else:
+                    antennas_deg = np.array([0.0, 0.0])
+
+                antennas_rad = np.deg2rad(antennas_deg)
+
+                reachy_mini.set_target(
+                    head=head_pose,
+                    antennas=antennas_rad,
+                )
 
             if sound_play_requested:
                 logger.info("Playing sound...")
@@ -427,14 +548,7 @@ class ReachyMiniLocalCompanion(ReachyMiniApp):
                         # Process through STT pipeline
                         stt_manager.process_audio(audio_float)
                 except Exception as e:
-                    logger.debug(f"Audio processing error: {e}")
-
-            antennas_rad = np.deg2rad(antennas_deg)
-
-            reachy_mini.set_target(
-                head=head_pose,
-                antennas=antennas_rad,
-            )
+                    logger.debug("Audio processing error: %s", e)
 
             time.sleep(0.02)
 

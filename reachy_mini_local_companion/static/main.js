@@ -47,6 +47,149 @@ document.getElementById("sound-btn").addEventListener("click", () => {
 
 updateAntennaUI();
 
+// === Emotion Controls ===
+let emotions = [];
+let currentEmotion = null;
+let emotionPollingInterval = null;
+
+async function loadEmotions() {
+    try {
+        const resp = await fetch("/emotions");
+        emotions = await resp.json();
+        renderEmotionGrid();
+    } catch (e) {
+        console.error("Error loading emotions:", e);
+    }
+}
+
+function renderEmotionGrid() {
+    const grid = document.getElementById("emotion-grid");
+    grid.innerHTML = emotions
+        .map(
+            (e) => `
+            <button class="emotion-btn" data-emotion="${e.name}" title="${e.description}">
+                <span class="emotion-icon">${getEmotionIcon(e.name)}</span>
+                <span class="emotion-label">${e.display_name}</span>
+            </button>
+        `
+        )
+        .join("");
+
+    // Add click handlers
+    grid.querySelectorAll(".emotion-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            triggerEmotion(btn.dataset.emotion);
+        });
+    });
+}
+
+function getEmotionIcon(name) {
+    const icons = {
+        happy: "😊",
+        sad: "😢",
+        curious: "🤔",
+        excited: "🤩",
+        sleepy: "😴",
+        surprised: "😲",
+        angry: "😠",
+        confused: "😕",
+    };
+    return icons[name] || "🤖";
+}
+
+async function triggerEmotion(name) {
+    try {
+        const resp = await fetch("/emotion", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name }),
+        });
+        const data = await resp.json();
+
+        if (data.status === "error") {
+            console.error("Emotion error:", data.error);
+        } else {
+            // Start polling for status updates
+            startEmotionPolling();
+        }
+    } catch (e) {
+        console.error("Error triggering emotion:", e);
+    }
+}
+
+async function stopEmotion() {
+    try {
+        await fetch("/emotion/stop", { method: "POST" });
+        await fetchEmotionStatus();
+    } catch (e) {
+        console.error("Error stopping emotion:", e);
+    }
+}
+
+async function fetchEmotionStatus() {
+    try {
+        const resp = await fetch("/emotion/status");
+        const status = await resp.json();
+        updateEmotionStatusUI(status);
+        return status;
+    } catch (e) {
+        console.error("Error fetching emotion status:", e);
+        return null;
+    }
+}
+
+function updateEmotionStatusUI(status) {
+    const stateEl = document.getElementById("emotion-state");
+    const stateTextEl = stateEl.querySelector(".state-text");
+    const stopBtn = document.getElementById("emotion-stop-btn");
+
+    currentEmotion = status.current_emotion;
+
+    // Update all emotion buttons
+    document.querySelectorAll(".emotion-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.emotion === currentEmotion);
+    });
+
+    if (currentEmotion) {
+        stateEl.className = "emotion-state playing";
+        const emotion = emotions.find((e) => e.name === currentEmotion);
+        stateTextEl.textContent = emotion ? emotion.display_name : currentEmotion;
+        stopBtn.disabled = false;
+    } else {
+        stateEl.className = "emotion-state idle";
+        stateTextEl.textContent = "Idle";
+        stopBtn.disabled = true;
+        stopEmotionPolling();
+    }
+}
+
+function startEmotionPolling() {
+    if (emotionPollingInterval) return;
+    emotionPollingInterval = setInterval(async () => {
+        const status = await fetchEmotionStatus();
+        if (!status || !status.current_emotion) {
+            stopEmotionPolling();
+        }
+    }, 200);
+}
+
+function stopEmotionPolling() {
+    if (emotionPollingInterval) {
+        clearInterval(emotionPollingInterval);
+        emotionPollingInterval = null;
+    }
+}
+
+// Emotion Event Listeners
+document.getElementById("emotion-stop-btn").addEventListener("click", () => {
+    stopEmotion();
+});
+
+// Initialize emotions
+loadEmotions().then(() => {
+    fetchEmotionStatus();
+});
+
 // === Speech-to-Text Controls ===
 let sttEnabled = false;
 let sttState = "idle";
