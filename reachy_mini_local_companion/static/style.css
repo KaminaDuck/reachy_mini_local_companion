@@ -23,3 +23,223 @@ body {
     align-items: center;
     gap: 20px;
 }
+
+/* Speech-to-Text Section */
+#stt-section {
+    margin-top: 32px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    max-width: 600px;
+}
+
+#stt-section h2 {
+    margin-top: 0;
+    margin-bottom: 16px;
+    color: #2c3e50;
+}
+
+#stt-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.stt-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.stt-config {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.stt-config select {
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    background: white;
+}
+
+.stt-config input[type="range"] {
+    flex: 1;
+    max-width: 150px;
+}
+
+/* STT Status Panel */
+#stt-status-panel {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px;
+    background: white;
+    border-radius: 6px;
+    margin-bottom: 16px;
+}
+
+.stt-state {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+.stt-state .state-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.stt-state.idle {
+    background: #ecf0f1;
+}
+.stt-state.idle .state-indicator {
+    background: #95a5a6;
+}
+
+.stt-state.wake_detected {
+    background: #fff3cd;
+}
+.stt-state.wake_detected .state-indicator {
+    background: #f39c12;
+}
+
+.stt-state.listening {
+    background: #d4edda;
+}
+.stt-state.listening .state-indicator {
+    background: #28a745;
+    animation: pulse 1s infinite;
+}
+
+.stt-state.processing {
+    background: #cce5ff;
+}
+.stt-state.processing .state-indicator {
+    background: #007bff;
+    animation: pulse 0.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+#stt-model-status {
+    font-size: 14px;
+    color: #6c757d;
+}
+
+#stt-model-status.loaded {
+    color: #28a745;
+}
+
+#stt-model-status.loading {
+    color: #f39c12;
+}
+
+#stt-model-status.error {
+    color: #dc3545;
+}
+
+/* STT Actions */
+#stt-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+#stt-actions button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+#stt-listen-btn {
+    background: #28a745;
+    color: white;
+}
+
+#stt-listen-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+#stt-stop-btn {
+    background: #dc3545;
+    color: white;
+}
+
+#stt-stop-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+#stt-clear-btn {
+    background: #6c757d;
+    color: white;
+}
+
+/* Transcripts */
+#stt-transcripts {
+    background: white;
+    border-radius: 6px;
+    padding: 12px;
+}
+
+#stt-transcripts h3 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 16px;
+    color: #2c3e50;
+}
+
+#transcript-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+#transcript-list .placeholder {
+    color: #6c757d;
+    font-style: italic;
+    margin: 0;
+}
+
+.transcript-item {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.transcript-item:last-child {
+    border-bottom: none;
+}
+
+.transcript-time {
+    font-size: 12px;
+    color: #6c757d;
+    flex-shrink: 0;
+}
+
+.wake-word {
+    font-size: 11px;
+    background: #e2e3e5;
+    padding: 2px 6px;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.transcript-text {
+    flex: 1;
+}

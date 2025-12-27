@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Reachy Mini example app template</title>
+    <title>Reachy Mini - Control Panel</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -21,6 +21,64 @@
     </div>
 
     <div id="status">Antennas status: running</div>
+
+    <!-- Speech-to-Text Section -->
+    <section id="stt-section">
+        <h2>Speech-to-Text</h2>
+
+        <div id="stt-controls">
+            <label class="stt-toggle">
+                <input type="checkbox" id="stt-enabled">
+                Enable STT
+            </label>
+
+            <div class="stt-config">
+                <label for="stt-engine">Model:</label>
+                <select id="stt-engine">
+                    <option value="vosk-small">Vosk Small (Fast, 40MB)</option>
+                    <option value="vosk-large">Vosk Large (Accurate, 1.8GB)</option>
+                    <option value="whisper-tiny">Whisper Tiny (75MB)</option>
+                    <option value="whisper-base">Whisper Base (150MB)</option>
+                    <option value="whisper-small">Whisper Small (500MB)</option>
+                </select>
+            </div>
+
+            <div class="stt-config">
+                <label class="stt-toggle">
+                    <input type="checkbox" id="stt-wake-word" checked>
+                    Wake Word ("Hey Jarvis")
+                </label>
+            </div>
+
+            <div class="stt-config">
+                <label for="stt-threshold">Sensitivity:</label>
+                <input type="range" id="stt-threshold" min="0.3" max="0.9" step="0.1" value="0.5">
+                <span id="stt-threshold-value">0.5</span>
+            </div>
+        </div>
+
+        <div id="stt-status-panel">
+            <div id="stt-state" class="stt-state idle">
+                <span class="state-indicator"></span>
+                <span class="state-text">Idle</span>
+            </div>
+            <div id="stt-model-status">Model: Not loaded</div>
+        </div>
+
+        <div id="stt-actions">
+            <button id="stt-listen-btn" disabled>Start Listening</button>
+            <button id="stt-stop-btn" disabled>Stop</button>
+            <button id="stt-clear-btn">Clear History</button>
+        </div>
+
+        <div id="stt-transcripts">
+            <h3>Transcripts</h3>
+            <div id="transcript-list">
+                <p class="placeholder">No transcripts yet. Enable STT and speak to see results.</p>
+            </div>
+        </div>
+    </section>
+
     <script src="/static/main.js"></script>
 </body>
 
