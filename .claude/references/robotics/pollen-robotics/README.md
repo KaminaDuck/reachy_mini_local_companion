@@ -6,7 +6,7 @@ tags: ["index", "robotics", "pollen-robotics", "reachy-mini", "humanoid"]
 category: "robotics"
 subcategory: "pollen-robotics"
 version: "1.0"
-last_updated: "2025-12-26"
+last_updated: "2025-12-28"
 status: "stable"
 sources:
   - name: "Pollen Robotics Website"
@@ -29,6 +29,9 @@ Comprehensive guide to the Reachy Mini platform including hardware variants, sys
 
 ### [Reachy Mini SDK Reference](reachy-mini-sdk.md)
 Python SDK API reference covering initialization, movement control, state access, motor management, recording/playback, and media handling.
+
+### [Hey Reachy Wake Word Detection](hey-reachy-wake-word.md)
+Custom wake word detection integration using Edge Impulse ML models. Responds to "Hey Reachy" voice command with robot animations and audio greetings.
 
 ## Platform Overview
 

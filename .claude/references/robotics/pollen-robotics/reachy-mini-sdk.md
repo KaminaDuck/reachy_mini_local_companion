@@ -15,6 +15,7 @@ sources:
     url: "https://deepwiki.com/pollen-robotics/reachy_mini/2-sdk-usage"
 related:
   - robotics/pollen-robotics/reachy-mini-overview.md
+  - robotics/pollen-robotics/hey-reachy-wake-word.md
 author: "unknown"
 contributors: []
 ---

@@ -17,6 +17,7 @@ sources:
     url: "https://huggingface.co/pollen-robotics/spaces"
 related:
   - robotics/pollen-robotics/reachy-mini-sdk.md
+  - robotics/pollen-robotics/hey-reachy-wake-word.md
 author: "unknown"
 contributors: []
 ---
