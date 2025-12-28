@@ -32,3 +32,9 @@ where = ["."]
 
 [tool.setuptools.package-data]
 reachy_mini_local_companion = ["**/*"] # Also include all non-.py files
+
+[tool.uv]
+# Exclude tflite-runtime: it's abandoned (no Python 3.12 wheels) but openwakeword
+# declares it as a Linux dependency. We use ONNX backend instead (see wake_word.py).
+# Using an impossible marker to effectively exclude it from resolution.
+override-dependencies = ["tflite-runtime; sys_platform == 'never'"]
