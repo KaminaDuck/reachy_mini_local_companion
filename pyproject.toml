@@ -6,17 +6,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "reachy_mini_local_companion"
 version = "0.1.0"
-description = "Add your description here"
+description = "Reachy Mini Local Companion - Emotions Testing Only"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "reachy-mini",
-    "vosk>=0.3.45",
-    "faster-whisper>=1.0.0",
-    "openwakeword>=0.6.0",
-    "webrtcvad>=2.0.10",
-    "pydantic-ai-slim[openai]>=0.1.0",
-    "piper-tts>=1.2.0",
+    # No additional dependencies needed for emotions
+    # The emotions module only uses stdlib + numpy (from reachy-mini)
 ]
 keywords = ["reachy-mini-app"]
 
@@ -31,10 +27,7 @@ include-package-data = true
 where = ["."]
 
 [tool.setuptools.package-data]
-reachy_mini_local_companion = ["**/*"] # Also include all non-.py files
+reachy_mini_local_companion = ["**/*"]
 
-[tool.uv]
-# Exclude tflite-runtime: it's abandoned (no Python 3.12 wheels) but openwakeword
-# declares it as a Linux dependency. We use ONNX backend instead (see wake_word.py).
-# Using an impossible marker to effectively exclude it from resolution.
-override-dependencies = ["tflite-runtime; sys_platform == 'never'"]
+# Feature flags for this branch: Only Emotions enabled
+# Set in environment or use defaults in main.py
